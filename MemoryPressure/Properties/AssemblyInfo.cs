@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("MemoryPressure")]
+[assembly: AssemblyTitle("Memory Pressure")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("RedSky IT")]
-[assembly: AssemblyProduct("MemoryPressure")]
-[assembly: AssemblyCopyright("Copyright © RedSky IT")]
+[assembly: AssemblyCompany("Made by Mehuge")]
+[assembly: AssemblyProduct("Memory Pressure")]
+[assembly: AssemblyCopyright("Copyright © Mehuge")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
