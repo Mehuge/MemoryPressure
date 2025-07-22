@@ -86,8 +86,9 @@ namespace MemoryPressure
 
             // This loop is the core of the new strategy. By writing to each page,
             // we signal to the OS that this memory is actively in use.
-            foreach (var block in memoryBlocks)
+            for (int b = 0; b < memoryBlocks.Count; b++)
             {
+                var block = memoryBlocks[b];
                 for (int i = 0; i < block.Length; i += PageSize)
                 {
                     block[i] = 1; // "Touch" the memory page.
