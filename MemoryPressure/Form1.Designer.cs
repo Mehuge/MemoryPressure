@@ -1,6 +1,6 @@
 ﻿// Form1.Designer.cs
 // This file contains the auto-generated code for the form's UI components.
-// Updated to have a dark theme with a black background and white text.
+// Corrected the ListView BackColor property to prevent a transparency exception.
 
 namespace MemoryPressure
 {
@@ -44,9 +44,14 @@ namespace MemoryPressure
             this.lblAppBlocksValue = new System.Windows.Forms.Label();
             this.lblAppBlocksLabel = new System.Windows.Forms.Label();
             this.btnSwitchMode = new System.Windows.Forms.Button();
+            this.gbTopProcesses = new System.Windows.Forms.GroupBox();
+            this.lvTopProcesses = new System.Windows.Forms.ListView();
+            this.colProcess = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.colMemory = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             ((System.ComponentModel.ISupportInitialize)(this.numTargetMemory)).BeginInit();
             this.gbStats.SuspendLayout();
             this.groupBox1.SuspendLayout();
+            this.gbTopProcesses.SuspendLayout();
             this.SuspendLayout();
             // 
             // lblTargetMemory
@@ -80,8 +85,7 @@ namespace MemoryPressure
             // 
             // btnStartStop
             // 
-            this.btnStartStop.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnStartStop.Location = new System.Drawing.Point(26, 328);
+            this.btnStartStop.Location = new System.Drawing.Point(26, 531);
             this.btnStartStop.Margin = new System.Windows.Forms.Padding(2);
             this.btnStartStop.Name = "btnStartStop";
             this.btnStartStop.Size = new System.Drawing.Size(268, 32);
@@ -241,7 +245,7 @@ namespace MemoryPressure
             this.chkHoldMemory.AutoSize = true;
             this.chkHoldMemory.BackColor = System.Drawing.Color.Transparent;
             this.chkHoldMemory.ForeColor = System.Drawing.Color.White;
-            this.chkHoldMemory.Location = new System.Drawing.Point(26, 298);
+            this.chkHoldMemory.Location = new System.Drawing.Point(26, 502);
             this.chkHoldMemory.Margin = new System.Windows.Forms.Padding(2);
             this.chkHoldMemory.Name = "chkHoldMemory";
             this.chkHoldMemory.Size = new System.Drawing.Size(255, 19);
@@ -310,7 +314,7 @@ namespace MemoryPressure
             // 
             // btnSwitchMode
             // 
-            this.btnSwitchMode.Location = new System.Drawing.Point(26, 365);
+            this.btnSwitchMode.Location = new System.Drawing.Point(26, 568);
             this.btnSwitchMode.Name = "btnSwitchMode";
             this.btnSwitchMode.Size = new System.Drawing.Size(268, 23);
             this.btnSwitchMode.TabIndex = 6;
@@ -318,13 +322,57 @@ namespace MemoryPressure
             this.btnSwitchMode.UseVisualStyleBackColor = true;
             this.btnSwitchMode.Click += new System.EventHandler(this.btnSwitchMode_Click);
             // 
+            // gbTopProcesses
+            // 
+            this.gbTopProcesses.BackColor = System.Drawing.Color.Transparent;
+            this.gbTopProcesses.Controls.Add(this.lvTopProcesses);
+            this.gbTopProcesses.ForeColor = System.Drawing.Color.White;
+            this.gbTopProcesses.Location = new System.Drawing.Point(26, 299);
+            this.gbTopProcesses.Name = "gbTopProcesses";
+            this.gbTopProcesses.Size = new System.Drawing.Size(268, 198);
+            this.gbTopProcesses.TabIndex = 7;
+            this.gbTopProcesses.TabStop = false;
+            this.gbTopProcesses.Text = "Top 10 Processes";
+            // 
+            // lvTopProcesses
+            // 
+            this.lvTopProcesses.BackColor = System.Drawing.Color.Black;
+            this.lvTopProcesses.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.lvTopProcesses.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
+            this.colProcess,
+            this.colMemory});
+            this.lvTopProcesses.ForeColor = System.Drawing.Color.White;
+            this.lvTopProcesses.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
+            this.lvTopProcesses.HideSelection = false;
+            this.lvTopProcesses.Location = new System.Drawing.Point(6, 19);
+            this.lvTopProcesses.Name = "lvTopProcesses";
+            this.lvTopProcesses.OwnerDraw = true;
+            this.lvTopProcesses.Size = new System.Drawing.Size(256, 173);
+            this.lvTopProcesses.TabIndex = 0;
+            this.lvTopProcesses.UseCompatibleStateImageBehavior = false;
+            this.lvTopProcesses.View = System.Windows.Forms.View.Details;
+            this.lvTopProcesses.DrawItem += new System.Windows.Forms.DrawListViewItemEventHandler(this.lvTopProcesses_DrawItem);
+            this.lvTopProcesses.DrawSubItem += new System.Windows.Forms.DrawListViewSubItemEventHandler(this.lvTopProcesses_DrawSubItem);
+            // 
+            // colProcess
+            // 
+            this.colProcess.Text = "Process";
+            this.colProcess.Width = 160;
+            // 
+            // colMemory
+            // 
+            this.colMemory.Text = "Memory";
+            this.colMemory.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.colMemory.Width = 75;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.Black;
             this.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("$this.BackgroundImage")));
-            this.ClientSize = new System.Drawing.Size(320, 404);
+            this.ClientSize = new System.Drawing.Size(320, 603);
+            this.Controls.Add(this.gbTopProcesses);
             this.Controls.Add(this.btnSwitchMode);
             this.Controls.Add(this.groupBox1);
             this.Controls.Add(this.chkHoldMemory);
@@ -340,11 +388,13 @@ namespace MemoryPressure
             this.Name = "Form1";
             this.Text = "Memory Pressure";
             this.Load += new System.EventHandler(this.Form1_Load);
+            this.Resize += new System.EventHandler(this.Form1_Resize);
             ((System.ComponentModel.ISupportInitialize)(this.numTargetMemory)).EndInit();
             this.gbStats.ResumeLayout(false);
             this.gbStats.PerformLayout();
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
+            this.gbTopProcesses.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -374,5 +424,9 @@ namespace MemoryPressure
         private System.Windows.Forms.Label lblAppBlocksValue;
         private System.Windows.Forms.Label lblAppBlocksLabel;
         private System.Windows.Forms.Button btnSwitchMode;
+        private System.Windows.Forms.GroupBox gbTopProcesses;
+        private System.Windows.Forms.ListView lvTopProcesses;
+        private System.Windows.Forms.ColumnHeader colProcess;
+        private System.Windows.Forms.ColumnHeader colMemory;
     }
 }

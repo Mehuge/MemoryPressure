@@ -34,14 +34,25 @@ namespace MemoryPressure
         }
 
         // Public method for the main form to update the stats on this overlay.
-        public void UpdateStats(string percent, string usedRam)
+        public void UpdateStats(string percent, string usedRam, string topProcessName, string topProcessMemory)
         {
             lblOverlayPercent.Text = percent;
             lblOverlayUsedRam.Text = usedRam;
+
+            // **NEW**: Update the top process label.
+            if (!string.IsNullOrEmpty(topProcessName))
+            {
+                lblTopProcess.Text = $"Top: {topProcessName} ({topProcessMemory})";
+            }
+            else
+            {
+                lblTopProcess.Text = "Top: (no process found)";
+            }
         }
 
         #region Form Dragging Logic
-        private void OverlayForm_MouseDown(object sender, MouseEventArgs e)
+        // This makes all controls on the form draggable.
+        private void DraggableControl_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
             {
@@ -51,7 +62,7 @@ namespace MemoryPressure
             }
         }
 
-        private void OverlayForm_MouseMove(object sender, MouseEventArgs e)
+        private void DraggableControl_MouseMove(object sender, MouseEventArgs e)
         {
             if (isDragging)
             {
@@ -61,7 +72,7 @@ namespace MemoryPressure
             }
         }
 
-        private void OverlayForm_MouseUp(object sender, MouseEventArgs e)
+        private void DraggableControl_MouseUp(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
             {

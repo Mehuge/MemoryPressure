@@ -1,10 +1,12 @@
 ﻿// Form1.cs
 // This file contains the main logic for the user interface and memory management.
-// Version 15: Added detailed stats and ability to switch to an overlay mode.
+// Version 19: Added logic to simulate ListView transparency for a background image.
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
@@ -40,18 +42,17 @@ namespace MemoryPressure
         private List<byte[]> memoryBlocks;
         private Timer memoryTimer;
         private Timer keepAliveTimer;
+        private Timer processListTimer;
         private bool isRunning = false;
         private bool isAdjusting = false;
         private const int BlockSizeMB = 10;
         private const int PageSize = 4096;
-
-        // **NEW**: Instance of the overlay form.
         private OverlayForm overlayForm;
 
         public Form1()
         {
             InitializeComponent();
-            
+
             memoryBlocks = new List<byte[]>();
 
             memoryTimer = new Timer { Interval = 100 };
@@ -60,7 +61,9 @@ namespace MemoryPressure
             keepAliveTimer = new Timer { Interval = 1000 };
             keepAliveTimer.Tick += KeepAliveTimer_Tick;
 
-            // **NEW**: Initialize the overlay form, passing a reference to this main form.
+            processListTimer = new Timer { Interval = 1000 };
+            processListTimer.Tick += ProcessListTimer_Tick;
+
             overlayForm = new OverlayForm(this);
         }
 
@@ -81,15 +84,19 @@ namespace MemoryPressure
             }
         }
 
+        private void ProcessListTimer_Tick(object sender, EventArgs e)
+        {
+            UpdateProcessList();
+        }
+
         private async void MemoryTimer_Tick(object sender, EventArgs e)
         {
             MEMORYSTATUSEX memStatus = new MEMORYSTATUSEX();
             if (!GlobalMemoryStatusEx(memStatus)) return;
 
-            // **UPDATED**: Always update all detailed stats.
             UpdateDetailedStats(memStatus);
             UpdateAppStatsLabels();
-            
+
             if (!isRunning || isAdjusting) return;
 
             int targetMemoryPercentage = (int)numTargetMemory.Value;
@@ -125,7 +132,33 @@ namespace MemoryPressure
             }
         }
 
-        // **NEW**: Helper function to format byte values into MB or GB.
+        private void UpdateProcessList()
+        {
+            try
+            {
+                var topProcesses = Process.GetProcesses()
+                                          .OrderByDescending(p => p.WorkingSet64)
+                                          .Take(10)
+                                          .ToList();
+
+                lvTopProcesses.BeginUpdate();
+                lvTopProcesses.Items.Clear();
+
+                foreach (var process in topProcesses)
+                {
+                    string memoryUsage = $"{process.WorkingSet64 / (1024 * 1024):N0} MB";
+                    ListViewItem item = new ListViewItem(process.ProcessName);
+                    item.SubItems.Add(memoryUsage);
+                    lvTopProcesses.Items.Add(item);
+                }
+                lvTopProcesses.EndUpdate();
+            }
+            catch (Exception)
+            {
+                // Ignore exceptions
+            }
+        }
+
         private string FormatBytes(ulong bytes)
         {
             double gb = bytes / (1024.0 * 1024.0 * 1024.0);
@@ -137,7 +170,6 @@ namespace MemoryPressure
             return $"{mb:F2} MB";
         }
 
-        // **NEW**: Central method to update all memory stat labels on both forms.
         private void UpdateDetailedStats(MEMORYSTATUSEX memStatus)
         {
             ulong usedPhys = memStatus.ullTotalPhys - memStatus.ullAvailPhys;
@@ -146,7 +178,6 @@ namespace MemoryPressure
             string percentText = $"{memStatus.dwMemoryLoad}%";
             string usedRamText = $"{FormatBytes(usedPhys)} / {FormatBytes(memStatus.ullTotalPhys)}";
 
-            // Update main form labels
             lblCurrentMemory.Text = $"Current Physical Memory: {percentText}";
             lblTotalRamValue.Text = FormatBytes(memStatus.ullTotalPhys);
             lblUsedRamValue.Text = FormatBytes(usedPhys);
@@ -154,13 +185,25 @@ namespace MemoryPressure
             lblUsedPageFileValue.Text = FormatBytes(usedPage);
             lblTotalPageFileValue.Text = FormatBytes(memStatus.ullTotalPageFile);
 
-            // Update overlay form if it's visible
             if (overlayForm.Visible)
             {
-                overlayForm.UpdateStats(percentText, usedRamText);
+                string topProcessName = "";
+                string topProcessMemory = "";
+                try
+                {
+                    var topProcess = Process.GetProcesses().OrderByDescending(p => p.WorkingSet64).FirstOrDefault();
+                    if (topProcess != null)
+                    {
+                        topProcessName = topProcess.ProcessName;
+                        topProcessMemory = $"{topProcess.WorkingSet64 / (1024 * 1024):N0} MB";
+                    }
+                }
+                catch { /* Ignore errors */ }
+
+                overlayForm.UpdateStats(percentText, usedRamText, topProcessName, topProcessMemory);
             }
         }
-        
+
         private void AllocateMemory(int blockCount)
         {
             for (int i = 0; i < blockCount; i++)
@@ -235,7 +278,13 @@ namespace MemoryPressure
         private void Form1_Load(object sender, EventArgs e)
         {
             this.Text = "Memory Pressure";
+
+            // **IMPORTANT**: Set your background image here for the transparency effect to work.
+            // For example: this.BackgroundImage = Properties.Resources.YourImageName;
+
+            UpdateListViewBackground(); // Apply the transparency effect.
             memoryTimer.Start();
+            processListTimer.Start();
 
             if (!Environment.Is64BitProcess)
             {
@@ -243,18 +292,69 @@ namespace MemoryPressure
             }
         }
 
-        // **NEW**: Method to switch to overlay mode.
         private void btnSwitchMode_Click(object sender, EventArgs e)
         {
             this.Hide();
             overlayForm.Show();
         }
 
-        // **NEW**: Public method so the overlay form can show the main form again.
         public void ShowMainWindow()
         {
             overlayForm.Hide();
             this.Show();
         }
+
+        #region ListView Custom Drawing & Transparency
+
+        private void UpdateListViewBackground()
+        {
+            if (this.BackgroundImage == null) return;
+
+            Bitmap bmp = new Bitmap(lvTopProcesses.Width, lvTopProcesses.Height);
+            Rectangle targetRect = lvTopProcesses.RectangleToScreen(lvTopProcesses.ClientRectangle);
+            Point targetPoint = this.PointToClient(targetRect.Location);
+
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.DrawImage(this.BackgroundImage,
+                            new Rectangle(0, 0, bmp.Width, bmp.Height),
+                            new Rectangle(targetPoint.X, targetPoint.Y, bmp.Width, bmp.Height),
+                            GraphicsUnit.Pixel);
+            }
+
+            lvTopProcesses.BackgroundImage = bmp;
+            lvTopProcesses.BackgroundImageTiled = false;
+        }
+
+        // **NEW**: Handle form resize to update the background clipping.
+        private void Form1_Resize(object sender, EventArgs e)
+        {
+            UpdateListViewBackground();
+        }
+
+        private void lvTopProcesses_DrawItem(object sender, DrawListViewItemEventArgs e)
+        {
+            if (e.Item.Selected)
+            {
+                using (SolidBrush brush = new SolidBrush(Color.FromArgb(100, 50, 100, 200)))
+                {
+                    e.Graphics.FillRectangle(brush, e.Bounds);
+                }
+            }
+        }
+
+        private void lvTopProcesses_DrawSubItem(object sender, DrawListViewSubItemEventArgs e)
+        {
+            TextFormatFlags flags = TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis;
+
+            if (e.ColumnIndex == 1)
+            {
+                flags = TextFormatFlags.Right | TextFormatFlags.VerticalCenter;
+            }
+
+            TextRenderer.DrawText(e.Graphics, e.SubItem.Text, e.SubItem.Font, e.Bounds, e.SubItem.ForeColor, flags);
+        }
+
+        #endregion
     }
 }
