@@ -1,6 +1,6 @@
 ﻿// Form1.Designer.cs
 // This file contains the auto-generated code for the form's UI components.
-// Corrected the ListView BackColor property to prevent a transparency exception.
+// Updated to include new buttons for recording and graphing.
 
 namespace MemoryPressure
 {
@@ -48,6 +48,9 @@ namespace MemoryPressure
             this.lvTopProcesses = new System.Windows.Forms.ListView();
             this.colProcess = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.colMemory = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.btnRecord = new System.Windows.Forms.Button();
+            this.btnShowGraph = new System.Windows.Forms.Button();
+            this.btnSaveData = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.numTargetMemory)).BeginInit();
             this.gbStats.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -78,7 +81,7 @@ namespace MemoryPressure
             this.numTargetMemory.Size = new System.Drawing.Size(90, 26);
             this.numTargetMemory.TabIndex = 1;
             this.numTargetMemory.Value = new decimal(new int[] {
-            50,
+            90,
             0,
             0,
             0});
@@ -90,7 +93,7 @@ namespace MemoryPressure
             this.btnStartStop.Name = "btnStartStop";
             this.btnStartStop.Size = new System.Drawing.Size(268, 32);
             this.btnStartStop.TabIndex = 3;
-            this.btnStartStop.Text = "Start";
+            this.btnStartStop.Text = "Start Applying Pressure";
             this.btnStartStop.UseVisualStyleBackColor = true;
             this.btnStartStop.Click += new System.EventHandler(this.btnStartStop_Click);
             // 
@@ -314,7 +317,7 @@ namespace MemoryPressure
             // 
             // btnSwitchMode
             // 
-            this.btnSwitchMode.Location = new System.Drawing.Point(26, 568);
+            this.btnSwitchMode.Location = new System.Drawing.Point(26, 642);
             this.btnSwitchMode.Name = "btnSwitchMode";
             this.btnSwitchMode.Size = new System.Drawing.Size(268, 23);
             this.btnSwitchMode.TabIndex = 6;
@@ -365,13 +368,46 @@ namespace MemoryPressure
             this.colMemory.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.colMemory.Width = 75;
             // 
+            // btnRecord
+            // 
+            this.btnRecord.Location = new System.Drawing.Point(26, 568);
+            this.btnRecord.Name = "btnRecord";
+            this.btnRecord.Size = new System.Drawing.Size(131, 23);
+            this.btnRecord.TabIndex = 8;
+            this.btnRecord.Text = "Start Recording";
+            this.btnRecord.UseVisualStyleBackColor = true;
+            this.btnRecord.Click += new System.EventHandler(this.btnRecord_Click);
+            // 
+            // btnShowGraph
+            // 
+            this.btnShowGraph.Location = new System.Drawing.Point(163, 568);
+            this.btnShowGraph.Name = "btnShowGraph";
+            this.btnShowGraph.Size = new System.Drawing.Size(131, 23);
+            this.btnShowGraph.TabIndex = 9;
+            this.btnShowGraph.Text = "Show Graph";
+            this.btnShowGraph.UseVisualStyleBackColor = true;
+            this.btnShowGraph.Click += new System.EventHandler(this.btnShowGraph_Click);
+            // 
+            // btnSaveData
+            // 
+            this.btnSaveData.Location = new System.Drawing.Point(26, 597);
+            this.btnSaveData.Name = "btnSaveData";
+            this.btnSaveData.Size = new System.Drawing.Size(268, 23);
+            this.btnSaveData.TabIndex = 10;
+            this.btnSaveData.Text = "Save Data to CSV";
+            this.btnSaveData.UseVisualStyleBackColor = true;
+            this.btnSaveData.Click += new System.EventHandler(this.btnSaveData_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.Black;
-            this.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("$this.BackgroundImage")));
-            this.ClientSize = new System.Drawing.Size(320, 603);
+            this.BackgroundImage = global::MemoryPressure.Properties.Resources.memory_presure;
+            this.ClientSize = new System.Drawing.Size(320, 677);
+            this.Controls.Add(this.btnSaveData);
+            this.Controls.Add(this.btnShowGraph);
+            this.Controls.Add(this.btnRecord);
             this.Controls.Add(this.gbTopProcesses);
             this.Controls.Add(this.btnSwitchMode);
             this.Controls.Add(this.groupBox1);
@@ -428,5 +464,8 @@ namespace MemoryPressure
         private System.Windows.Forms.ListView lvTopProcesses;
         private System.Windows.Forms.ColumnHeader colProcess;
         private System.Windows.Forms.ColumnHeader colMemory;
+        private System.Windows.Forms.Button btnRecord;
+        private System.Windows.Forms.Button btnShowGraph;
+        private System.Windows.Forms.Button btnSaveData;
     }
 }

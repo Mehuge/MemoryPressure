@@ -1,11 +1,12 @@
 ﻿// Form1.cs
 // This file contains the main logic for the user interface and memory management.
-// Version 19: Added logic to simulate ListView transparency for a background image.
+// Version 22: Re-added the call to UpdateListViewBackground for transparency.
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using System.Threading.Tasks;
@@ -43,17 +44,22 @@ namespace MemoryPressure
         private Timer memoryTimer;
         private Timer keepAliveTimer;
         private Timer processListTimer;
+        private Timer recordingTimer;
         private bool isRunning = false;
         private bool isAdjusting = false;
+        private bool isRecording = false;
         private const int BlockSizeMB = 10;
         private const int PageSize = 4096;
         private OverlayForm overlayForm;
+        private GraphForm graphForm;
+        private List<Tuple<DateTime, uint>> recordedData;
 
         public Form1()
         {
             InitializeComponent();
 
             memoryBlocks = new List<byte[]>();
+            recordedData = new List<Tuple<DateTime, uint>>();
 
             memoryTimer = new Timer { Interval = 100 };
             memoryTimer.Tick += MemoryTimer_Tick;
@@ -64,7 +70,11 @@ namespace MemoryPressure
             processListTimer = new Timer { Interval = 1000 };
             processListTimer.Tick += ProcessListTimer_Tick;
 
+            recordingTimer = new Timer { Interval = 5000 };
+            recordingTimer.Tick += RecordingTimer_Tick;
+
             overlayForm = new OverlayForm(this);
+            // graphForm is initialized on demand now.
         }
 
         private void KeepAliveTimer_Tick(object sender, EventArgs e)
@@ -87,6 +97,26 @@ namespace MemoryPressure
         private void ProcessListTimer_Tick(object sender, EventArgs e)
         {
             UpdateProcessList();
+        }
+
+        private void RecordingTimer_Tick(object sender, EventArgs e)
+        {
+            MEMORYSTATUSEX memStatus = new MEMORYSTATUSEX();
+            if (GlobalMemoryStatusEx(memStatus))
+            {
+                var dataPoint = new Tuple<DateTime, uint>(DateTime.Now, memStatus.dwMemoryLoad);
+                recordedData.Add(dataPoint);
+
+                if (recordedData.Count > 1)
+                {
+                    btnShowGraph.Enabled = true;
+                }
+
+                if (graphForm != null && !graphForm.IsDisposed && graphForm.Visible)
+                {
+                    graphForm.UpdateGraph(recordedData);
+                }
+            }
         }
 
         private async void MemoryTimer_Tick(object sender, EventArgs e)
@@ -262,14 +292,14 @@ namespace MemoryPressure
         private void StartMemoryManagement()
         {
             isRunning = true;
-            btnStartStop.Text = "Stop";
+            btnStartStop.Text = "Stop Applying Pressure";
             keepAliveTimer.Start();
         }
 
         private void StopMemoryManagement()
         {
             isRunning = false;
-            btnStartStop.Text = "Start";
+            btnStartStop.Text = "Start Applying Pressure";
             keepAliveTimer.Stop();
             FreeMemory(memoryBlocks.Count);
             UpdateAppStatsLabels();
@@ -279,10 +309,9 @@ namespace MemoryPressure
         {
             this.Text = "Memory Pressure";
 
-            // **IMPORTANT**: Set your background image here for the transparency effect to work.
-            // For example: this.BackgroundImage = Properties.Resources.YourImageName;
+            // **FIX**: Re-added the call to update the ListView background.
+            UpdateListViewBackground();
 
-            UpdateListViewBackground(); // Apply the transparency effect.
             memoryTimer.Start();
             processListTimer.Start();
 
@@ -303,6 +332,77 @@ namespace MemoryPressure
             overlayForm.Hide();
             this.Show();
         }
+
+        #region New Button Handlers
+        private void btnRecord_Click(object sender, EventArgs e)
+        {
+            isRecording = !isRecording;
+
+            if (isRecording)
+            {
+                recordedData.Clear();
+                recordingTimer.Start();
+                btnRecord.Text = "Stop Recording";
+                btnRecord.BackColor = Color.Red;
+                btnRecord.ForeColor = Color.White;
+                btnShowGraph.Enabled = false;
+            }
+            else
+            {
+                recordingTimer.Stop();
+                btnRecord.Text = "Start Recording";
+                btnRecord.BackColor = SystemColors.Control;
+                btnRecord.ForeColor = SystemColors.ControlText;
+                btnShowGraph.Enabled = recordedData.Count > 1;
+            }
+        }
+
+        private void btnShowGraph_Click(object sender, EventArgs e)
+        {
+            if (graphForm == null || graphForm.IsDisposed)
+            {
+                graphForm = new GraphForm();
+            }
+
+            graphForm.ShowGraph(recordedData);
+        }
+
+        private void btnSaveData_Click(object sender, EventArgs e)
+        {
+            if (recordedData.Count == 0)
+            {
+                MessageBox.Show("No data has been recorded to save.", "No Data", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using (SaveFileDialog sfd = new SaveFileDialog())
+            {
+                sfd.Filter = "CSV File (*.csv)|*.csv";
+                sfd.Title = "Save Recorded Memory Data";
+                sfd.FileName = $"MemoryPressure_Log_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+
+                if (sfd.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        using (StreamWriter writer = new StreamWriter(sfd.FileName))
+                        {
+                            writer.WriteLine("Timestamp,PhysicalMemoryUsagePercentage");
+                            foreach (var dataPoint in recordedData)
+                            {
+                                writer.WriteLine($"{dataPoint.Item1:yyyy-MM-dd HH:mm:ss},{dataPoint.Item2}");
+                            }
+                        }
+                        MessageBox.Show("Data saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to save data. Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+        #endregion
 
         #region ListView Custom Drawing & Transparency
 
@@ -326,7 +426,7 @@ namespace MemoryPressure
             lvTopProcesses.BackgroundImageTiled = false;
         }
 
-        // **NEW**: Handle form resize to update the background clipping.
+        // **FIX**: Re-added the missing Resize event handler.
         private void Form1_Resize(object sender, EventArgs e)
         {
             UpdateListViewBackground();
@@ -354,7 +454,6 @@ namespace MemoryPressure
 
             TextRenderer.DrawText(e.Graphics, e.SubItem.Text, e.SubItem.Font, e.Bounds, e.SubItem.ForeColor, flags);
         }
-
         #endregion
     }
 }
