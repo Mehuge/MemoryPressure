@@ -7,6 +7,8 @@ Memory Pressure is a lightweight yet powerful Windows utility designed for devel
 # Screen Shots
 ## Main Window
 <img src="images/MemoryPressure-mainwindow.png" title="Main Window" width="200"></img>
+## Memory Usage Graph
+<img src="images/MemoryPressure-usage-graph.png" title="Memory Usage Graph" height="200"></img>
 ## Overlay
 ![Overlay](images/MemoryPressure-overlay.png)
 
