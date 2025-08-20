@@ -1,5 +1,6 @@
 ﻿// GraphForm.Designer.cs
 // This file contains the auto-generated code for the graph form's UI components.
+// Updated to make the legend more compact.
 
 namespace MemoryPressure
 {
@@ -23,7 +24,6 @@ namespace MemoryPressure
             System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea1 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
             System.Windows.Forms.DataVisualization.Charting.Legend legend1 = new System.Windows.Forms.DataVisualization.Charting.Legend();
             System.Windows.Forms.DataVisualization.Charting.Series series1 = new System.Windows.Forms.DataVisualization.Charting.Series();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(GraphForm));
             this.chartMemory = new System.Windows.Forms.DataVisualization.Charting.Chart();
             ((System.ComponentModel.ISupportInitialize)(this.chartMemory)).BeginInit();
             this.SuspendLayout();
@@ -34,6 +34,9 @@ namespace MemoryPressure
             chartArea1.Name = "ChartArea1";
             this.chartMemory.ChartAreas.Add(chartArea1);
             this.chartMemory.Dock = System.Windows.Forms.DockStyle.Fill;
+            legend1.Alignment = System.Drawing.StringAlignment.Center;
+            legend1.Docking = System.Windows.Forms.DataVisualization.Charting.Docking.Top;
+            legend1.LegendStyle = System.Windows.Forms.DataVisualization.Charting.LegendStyle.Row;
             legend1.Name = "Legend1";
             this.chartMemory.Legends.Add(legend1);
             this.chartMemory.Location = new System.Drawing.Point(0, 0);
@@ -52,7 +55,6 @@ namespace MemoryPressure
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(784, 461);
             this.Controls.Add(this.chartMemory);
-            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "GraphForm";
             this.Text = "Memory Usage Graph";
             ((System.ComponentModel.ISupportInitialize)(this.chartMemory)).EndInit();

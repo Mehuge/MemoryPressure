@@ -1,6 +1,6 @@
 ﻿// Form1.cs
 // This file contains the main logic for the user interface and memory management.
-// Version 24: Removed the data check before showing the graph.
+// Version 25: Removed the local MemoryDataPoint class definition.
 
 using System;
 using System.Collections.Generic;
@@ -45,6 +45,11 @@ namespace MemoryPressure
         private Timer keepAliveTimer;
         private Timer processListTimer;
         private Timer recordingTimer;
+
+        private PerformanceCounter pageFaultsCounter;
+        private PerformanceCounter pagesInputCounter;
+        private PerformanceCounter pagesOutputCounter;
+
         private bool isRunning = false;
         private bool isAdjusting = false;
         private bool isRecording = false;
@@ -52,14 +57,14 @@ namespace MemoryPressure
         private const int PageSize = 4096;
         private OverlayForm overlayForm;
         private GraphForm graphForm;
-        private List<Tuple<DateTime, uint>> recordedData;
+        private List<MemoryDataPoint> recordedData;
 
         public Form1()
         {
             InitializeComponent();
 
             memoryBlocks = new List<byte[]>();
-            recordedData = new List<Tuple<DateTime, uint>>();
+            recordedData = new List<MemoryDataPoint>();
 
             memoryTimer = new Timer { Interval = 100 };
             memoryTimer.Tick += MemoryTimer_Tick;
@@ -72,6 +77,18 @@ namespace MemoryPressure
 
             recordingTimer = new Timer { Interval = 5000 };
             recordingTimer.Tick += RecordingTimer_Tick;
+
+            try
+            {
+                pageFaultsCounter = new PerformanceCounter("Memory", "Page Faults/sec");
+                pagesInputCounter = new PerformanceCounter("Memory", "Pages Input/sec");
+                pagesOutputCounter = new PerformanceCounter("Memory", "Pages Output/sec");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to initialize performance counters. Some graphing features may not work.\n\nError: {ex.Message}", "Performance Counter Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
 
             overlayForm = new OverlayForm(this);
         }
@@ -103,7 +120,16 @@ namespace MemoryPressure
             MEMORYSTATUSEX memStatus = new MEMORYSTATUSEX();
             if (GlobalMemoryStatusEx(memStatus))
             {
-                var dataPoint = new Tuple<DateTime, uint>(DateTime.Now, memStatus.dwMemoryLoad);
+                var dataPoint = new MemoryDataPoint
+                {
+                    Timestamp = DateTime.Now,
+                    MemoryLoad = memStatus.dwMemoryLoad,
+                    PageFaultsPerSec = pageFaultsCounter?.NextValue() ?? 0,
+                    PagesInputPerSec = pagesInputCounter?.NextValue() ?? 0,
+                    PagesOutputPerSec = pagesOutputCounter?.NextValue() ?? 0,
+                    TopProcess = GetTopProcessName()
+                };
+
                 recordedData.Add(dataPoint);
 
                 if (graphForm != null && !graphForm.IsDisposed && graphForm.Visible)
@@ -111,6 +137,15 @@ namespace MemoryPressure
                     graphForm.UpdateGraph(recordedData);
                 }
             }
+        }
+
+        private string GetTopProcessName()
+        {
+            try
+            {
+                return Process.GetProcesses().OrderByDescending(p => p.WorkingSet64).FirstOrDefault()?.ProcessName ?? "N/A";
+            }
+            catch { return "N/A"; }
         }
 
         private async void MemoryTimer_Tick(object sender, EventArgs e)
@@ -348,7 +383,6 @@ namespace MemoryPressure
 
         private void btnShowGraph_Click(object sender, EventArgs e)
         {
-            // **FIX**: Removed the check for recordedData.Count.
             if (graphForm == null || graphForm.IsDisposed)
             {
                 graphForm = new GraphForm();
@@ -377,10 +411,10 @@ namespace MemoryPressure
                     {
                         using (StreamWriter writer = new StreamWriter(sfd.FileName))
                         {
-                            writer.WriteLine("Timestamp,PhysicalMemoryUsagePercentage");
+                            writer.WriteLine("Timestamp,PhysicalMemoryUsagePercentage,PageFaultsPerSec,PagesInputPerSec,PagesOutputPerSec,TopProcess");
                             foreach (var dataPoint in recordedData)
                             {
-                                writer.WriteLine($"{dataPoint.Item1:yyyy-MM-dd HH:mm:ss},{dataPoint.Item2}");
+                                writer.WriteLine($"{dataPoint.Timestamp:yyyy-MM-dd HH:mm:ss},{dataPoint.MemoryLoad},{dataPoint.PageFaultsPerSec},{dataPoint.PagesInputPerSec},{dataPoint.PagesOutputPerSec},{dataPoint.TopProcess}");
                             }
                         }
                         MessageBox.Show("Data saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);

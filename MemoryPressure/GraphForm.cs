@@ -1,6 +1,6 @@
 ﻿// GraphForm.cs
 // This file contains the logic for the new graph window.
-// Updated to include data thinning for better performance and visuals with large datasets.
+// Updated to make the legend more compact.
 
 using System;
 using System.Collections.Generic;
@@ -17,68 +17,105 @@ namespace MemoryPressure
             InitializeComponent();
         }
 
-        // This method is called the first time the graph is shown.
-        public void ShowGraph(List<Tuple<DateTime, uint>> data)
+        public void ShowGraph(List<MemoryDataPoint> data)
         {
             if (chartMemory == null) return;
             chartMemory.Series.Clear();
 
-            var series = new Series("Physical Memory")
+            var memSeries = new Series("Physical Memory (%)")
+            {
+                ChartType = SeriesChartType.Line,
+                XValueType = ChartValueType.DateTime,
+                BorderWidth = 3,
+                Color = Color.LimeGreen,
+            };
+
+            var faultsSeries = new Series("Page Faults/sec")
             {
                 ChartType = SeriesChartType.Line,
                 XValueType = ChartValueType.DateTime,
                 BorderWidth = 2,
-                Color = Color.LimeGreen
+                Color = Color.OrangeRed,
+                YAxisType = AxisType.Secondary
             };
 
-            chartMemory.Series.Add(series);
-            ConfigureChartAppearance();
+            var pagesInSeries = new Series("Pages Input/sec")
+            {
+                ChartType = SeriesChartType.Line,
+                XValueType = ChartValueType.DateTime,
+                BorderWidth = 1,
+                Color = Color.Cyan,
+                YAxisType = AxisType.Secondary
+            };
 
-            // Initial data load
+            var pagesOutSeries = new Series("Pages Output/sec")
+            {
+                ChartType = SeriesChartType.Line,
+                XValueType = ChartValueType.DateTime,
+                BorderWidth = 1,
+                Color = Color.Magenta,
+                YAxisType = AxisType.Secondary
+            };
+
+            chartMemory.Series.Add(memSeries);
+            chartMemory.Series.Add(faultsSeries);
+            chartMemory.Series.Add(pagesInSeries);
+            chartMemory.Series.Add(pagesOutSeries);
+
+            ConfigureChartAppearance();
             UpdateGraph(data);
 
             this.Show();
             this.Activate();
         }
 
-        // This method is now used for both initial load and real-time updates.
-        public void UpdateGraph(List<Tuple<DateTime, uint>> data)
+        public void UpdateGraph(List<MemoryDataPoint> data)
         {
             if (this.IsDisposed || !this.IsHandleCreated) return;
 
-            // Use Invoke to ensure thread safety when updating the UI from a timer.
             this.Invoke((MethodInvoker)delegate
             {
                 if (chartMemory.Series.Count == 0) return;
 
-                var series = chartMemory.Series["Physical Memory"];
-                series.Points.Clear();
+                var memSeries = chartMemory.Series["Physical Memory (%)"];
+                var faultsSeries = chartMemory.Series["Page Faults/sec"];
+                var pagesInSeries = chartMemory.Series["Pages Input/sec"];
+                var pagesOutSeries = chartMemory.Series["Pages Output/sec"];
 
-                // **NEW**: Data thinning logic
+                memSeries.Points.Clear();
+                faultsSeries.Points.Clear();
+                pagesInSeries.Points.Clear();
+                pagesOutSeries.Points.Clear();
+
                 const int maxPointsToShow = 500;
                 int dataCount = data.Count;
 
+                List<MemoryDataPoint> dataToShow;
+
                 if (dataCount <= maxPointsToShow)
                 {
-                    // If we have a reasonable number of points, show them all.
-                    foreach (var point in data)
-                    {
-                        series.Points.AddXY(point.Item1, point.Item2);
-                    }
+                    dataToShow = data;
                 }
                 else
                 {
-                    // If we have too many points, calculate a step to skip samples.
+                    dataToShow = new List<MemoryDataPoint>();
                     int step = dataCount / maxPointsToShow;
                     for (int i = 0; i < dataCount; i += step)
                     {
-                        series.Points.AddXY(data[i].Item1, data[i].Item2);
+                        dataToShow.Add(data[i]);
                     }
                 }
 
-                // **NEW**: Only show markers if the point count is low to avoid clutter.
-                series.MarkerStyle = dataCount < 100 ? MarkerStyle.Circle : MarkerStyle.None;
-                series.MarkerSize = 5;
+                foreach (var point in dataToShow)
+                {
+                    memSeries.Points.AddXY(point.Timestamp, point.MemoryLoad);
+                    faultsSeries.Points.AddXY(point.Timestamp, point.PageFaultsPerSec);
+                    pagesInSeries.Points.AddXY(point.Timestamp, point.PagesInputPerSec);
+                    pagesOutSeries.Points.AddXY(point.Timestamp, point.PagesOutputPerSec);
+                }
+
+                memSeries.MarkerStyle = dataCount < 100 ? MarkerStyle.Circle : MarkerStyle.None;
+                memSeries.MarkerSize = 5;
 
                 chartMemory.Invalidate();
             });
@@ -89,13 +126,6 @@ namespace MemoryPressure
             var chartArea = chartMemory.ChartAreas[0];
             chartArea.BackColor = Color.FromArgb(20, 20, 20);
 
-            chartArea.AxisX.LabelStyle.Format = "HH:mm:ss";
-            chartArea.AxisX.Title = "Time";
-            chartArea.AxisX.MajorGrid.LineColor = Color.FromArgb(50, 50, 50);
-            chartArea.AxisX.LineColor = Color.Gray;
-            chartArea.AxisX.LabelStyle.ForeColor = Color.White;
-            chartArea.AxisX.TitleForeColor = Color.White;
-
             chartArea.AxisY.Title = "Memory Usage (%)";
             chartArea.AxisY.Minimum = 0;
             chartArea.AxisY.Maximum = 100;
@@ -104,7 +134,27 @@ namespace MemoryPressure
             chartArea.AxisY.LabelStyle.ForeColor = Color.White;
             chartArea.AxisY.TitleForeColor = Color.White;
 
-            chartMemory.Legends[0].Enabled = false;
+            chartArea.AxisY2.Enabled = AxisEnabled.True;
+            chartArea.AxisY2.Title = "Page Activity / sec";
+            chartArea.AxisY2.MajorGrid.Enabled = false;
+            chartArea.AxisY2.LineColor = Color.Gray;
+            chartArea.AxisY2.LabelStyle.ForeColor = Color.White;
+            chartArea.AxisY2.TitleForeColor = Color.White;
+
+            chartArea.AxisX.LabelStyle.Format = "HH:mm:ss";
+            chartArea.AxisX.Title = "Time";
+            chartArea.AxisX.MajorGrid.LineColor = Color.FromArgb(50, 50, 50);
+            chartArea.AxisX.LineColor = Color.Gray;
+            chartArea.AxisX.LabelStyle.ForeColor = Color.White;
+            chartArea.AxisX.TitleForeColor = Color.White;
+
+            // **UPDATED**: Configure legend for a more compact look.
+            var legend = chartMemory.Legends[0];
+            legend.BackColor = Color.Transparent;
+            legend.ForeColor = Color.White;
+            legend.Docking = Docking.Top;
+            legend.Alignment = StringAlignment.Center;
+            legend.LegendStyle = LegendStyle.Row;
         }
     }
 }

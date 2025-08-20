@@ -118,6 +118,7 @@
     <Compile Include="GraphForm.Designer.cs">
       <DependentUpon>GraphForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="MemoryDataPoint.cs" />
     <Compile Include="OverlayForm.cs">
       <SubType>Form</SubType>
     </Compile>
