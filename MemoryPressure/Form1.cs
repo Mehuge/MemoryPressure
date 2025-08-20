@@ -1,6 +1,6 @@
 ﻿// Form1.cs
 // This file contains the main logic for the user interface and memory management.
-// Version 22: Re-added the call to UpdateListViewBackground for transparency.
+// Version 24: Removed the data check before showing the graph.
 
 using System;
 using System.Collections.Generic;
@@ -74,7 +74,6 @@ namespace MemoryPressure
             recordingTimer.Tick += RecordingTimer_Tick;
 
             overlayForm = new OverlayForm(this);
-            // graphForm is initialized on demand now.
         }
 
         private void KeepAliveTimer_Tick(object sender, EventArgs e)
@@ -106,11 +105,6 @@ namespace MemoryPressure
             {
                 var dataPoint = new Tuple<DateTime, uint>(DateTime.Now, memStatus.dwMemoryLoad);
                 recordedData.Add(dataPoint);
-
-                if (recordedData.Count > 1)
-                {
-                    btnShowGraph.Enabled = true;
-                }
 
                 if (graphForm != null && !graphForm.IsDisposed && graphForm.Visible)
                 {
@@ -308,10 +302,7 @@ namespace MemoryPressure
         private void Form1_Load(object sender, EventArgs e)
         {
             this.Text = "Memory Pressure";
-
-            // **FIX**: Re-added the call to update the ListView background.
             UpdateListViewBackground();
-
             memoryTimer.Start();
             processListTimer.Start();
 
@@ -345,7 +336,6 @@ namespace MemoryPressure
                 btnRecord.Text = "Stop Recording";
                 btnRecord.BackColor = Color.Red;
                 btnRecord.ForeColor = Color.White;
-                btnShowGraph.Enabled = false;
             }
             else
             {
@@ -353,12 +343,12 @@ namespace MemoryPressure
                 btnRecord.Text = "Start Recording";
                 btnRecord.BackColor = SystemColors.Control;
                 btnRecord.ForeColor = SystemColors.ControlText;
-                btnShowGraph.Enabled = recordedData.Count > 1;
             }
         }
 
         private void btnShowGraph_Click(object sender, EventArgs e)
         {
+            // **FIX**: Removed the check for recordedData.Count.
             if (graphForm == null || graphForm.IsDisposed)
             {
                 graphForm = new GraphForm();
@@ -405,7 +395,6 @@ namespace MemoryPressure
         #endregion
 
         #region ListView Custom Drawing & Transparency
-
         private void UpdateListViewBackground()
         {
             if (this.BackgroundImage == null) return;
@@ -426,7 +415,6 @@ namespace MemoryPressure
             lvTopProcesses.BackgroundImageTiled = false;
         }
 
-        // **FIX**: Re-added the missing Resize event handler.
         private void Form1_Resize(object sender, EventArgs e)
         {
             UpdateListViewBackground();
