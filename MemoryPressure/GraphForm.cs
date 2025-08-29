@@ -1,6 +1,6 @@
 ﻿// GraphForm.cs
 // This file contains the logic for the new graph window.
-// Updated to make the legend more compact.
+// Updated to display page file usage percentage.
 
 using System;
 using System.Collections.Generic;
@@ -28,6 +28,25 @@ namespace MemoryPressure
                 XValueType = ChartValueType.DateTime,
                 BorderWidth = 3,
                 Color = Color.LimeGreen,
+            };
+
+            var commitSeries = new Series("Committed Memory (%)")
+            {
+                ChartType = SeriesChartType.Line,
+                XValueType = ChartValueType.DateTime,
+                BorderWidth = 2,
+                Color = Color.Yellow,
+                BorderDashStyle = ChartDashStyle.Dash
+            };
+
+            // **NEW**: Series for page file usage.
+            var pageFileSeries = new Series("Page File Usage (%)")
+            {
+                ChartType = SeriesChartType.Line,
+                XValueType = ChartValueType.DateTime,
+                BorderWidth = 2,
+                Color = Color.SkyBlue,
+                BorderDashStyle = ChartDashStyle.Dot
             };
 
             var faultsSeries = new Series("Page Faults/sec")
@@ -58,6 +77,8 @@ namespace MemoryPressure
             };
 
             chartMemory.Series.Add(memSeries);
+            chartMemory.Series.Add(commitSeries);
+            chartMemory.Series.Add(pageFileSeries); // **NEW**
             chartMemory.Series.Add(faultsSeries);
             chartMemory.Series.Add(pagesInSeries);
             chartMemory.Series.Add(pagesOutSeries);
@@ -78,11 +99,15 @@ namespace MemoryPressure
                 if (chartMemory.Series.Count == 0) return;
 
                 var memSeries = chartMemory.Series["Physical Memory (%)"];
+                var commitSeries = chartMemory.Series["Committed Memory (%)"];
+                var pageFileSeries = chartMemory.Series["Page File Usage (%)"]; // **NEW**
                 var faultsSeries = chartMemory.Series["Page Faults/sec"];
                 var pagesInSeries = chartMemory.Series["Pages Input/sec"];
                 var pagesOutSeries = chartMemory.Series["Pages Output/sec"];
 
                 memSeries.Points.Clear();
+                commitSeries.Points.Clear();
+                pageFileSeries.Points.Clear(); // **NEW**
                 faultsSeries.Points.Clear();
                 pagesInSeries.Points.Clear();
                 pagesOutSeries.Points.Clear();
@@ -109,6 +134,8 @@ namespace MemoryPressure
                 foreach (var point in dataToShow)
                 {
                     memSeries.Points.AddXY(point.Timestamp, point.MemoryLoad);
+                    commitSeries.Points.AddXY(point.Timestamp, point.CommittedMemoryPercentage);
+                    pageFileSeries.Points.AddXY(point.Timestamp, point.PageFileUsagePercentage); // **NEW**
                     faultsSeries.Points.AddXY(point.Timestamp, point.PageFaultsPerSec);
                     pagesInSeries.Points.AddXY(point.Timestamp, point.PagesInputPerSec);
                     pagesOutSeries.Points.AddXY(point.Timestamp, point.PagesOutputPerSec);
@@ -148,7 +175,6 @@ namespace MemoryPressure
             chartArea.AxisX.LabelStyle.ForeColor = Color.White;
             chartArea.AxisX.TitleForeColor = Color.White;
 
-            // **UPDATED**: Configure legend for a more compact look.
             var legend = chartMemory.Legends[0];
             legend.BackColor = Color.Transparent;
             legend.ForeColor = Color.White;

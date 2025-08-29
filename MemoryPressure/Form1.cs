@@ -1,6 +1,6 @@
 ﻿// Form1.cs
 // This file contains the main logic for the user interface and memory management.
-// Version 25: Removed the local MemoryDataPoint class definition.
+// Version 27: Added page file usage to the data recording.
 
 using System;
 using System.Collections.Generic;
@@ -49,6 +49,7 @@ namespace MemoryPressure
         private PerformanceCounter pageFaultsCounter;
         private PerformanceCounter pagesInputCounter;
         private PerformanceCounter pagesOutputCounter;
+        private PerformanceCounter pageFileUsageCounter; // **NEW**
 
         private bool isRunning = false;
         private bool isAdjusting = false;
@@ -83,12 +84,13 @@ namespace MemoryPressure
                 pageFaultsCounter = new PerformanceCounter("Memory", "Page Faults/sec");
                 pagesInputCounter = new PerformanceCounter("Memory", "Pages Input/sec");
                 pagesOutputCounter = new PerformanceCounter("Memory", "Pages Output/sec");
+                // **NEW**: Initialize the page file usage counter. The "_Total" instance is required.
+                pageFileUsageCounter = new PerformanceCounter("Paging File", "% Usage", "_Total");
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Failed to initialize performance counters. Some graphing features may not work.\n\nError: {ex.Message}", "Performance Counter Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
-
 
             overlayForm = new OverlayForm(this);
         }
@@ -120,10 +122,17 @@ namespace MemoryPressure
             MEMORYSTATUSEX memStatus = new MEMORYSTATUSEX();
             if (GlobalMemoryStatusEx(memStatus))
             {
+                ulong commitLimit = memStatus.ullTotalPageFile + memStatus.ullTotalPhys;
+                ulong availCommit = memStatus.ullAvailPageFile + memStatus.ullAvailPhys;
+                ulong usedCommit = commitLimit - availCommit;
+                uint commitPercent = (uint)((usedCommit * 100) / commitLimit);
+
                 var dataPoint = new MemoryDataPoint
                 {
                     Timestamp = DateTime.Now,
                     MemoryLoad = memStatus.dwMemoryLoad,
+                    CommittedMemoryPercentage = commitPercent,
+                    PageFileUsagePercentage = (uint)(pageFileUsageCounter?.NextValue() ?? 0), // **NEW**
                     PageFaultsPerSec = pageFaultsCounter?.NextValue() ?? 0,
                     PagesInputPerSec = pagesInputCounter?.NextValue() ?? 0,
                     PagesOutputPerSec = pagesOutputCounter?.NextValue() ?? 0,
@@ -411,10 +420,12 @@ namespace MemoryPressure
                     {
                         using (StreamWriter writer = new StreamWriter(sfd.FileName))
                         {
-                            writer.WriteLine("Timestamp,PhysicalMemoryUsagePercentage,PageFaultsPerSec,PagesInputPerSec,PagesOutputPerSec,TopProcess");
+                            // **UPDATED**: New CSV header.
+                            writer.WriteLine("Timestamp,PhysicalMemoryUsagePercentage,CommittedMemoryPercentage,PageFileUsagePercentage,PageFaultsPerSec,PagesInputPerSec,PagesOutputPerSec,TopProcess");
                             foreach (var dataPoint in recordedData)
                             {
-                                writer.WriteLine($"{dataPoint.Timestamp:yyyy-MM-dd HH:mm:ss},{dataPoint.MemoryLoad},{dataPoint.PageFaultsPerSec},{dataPoint.PagesInputPerSec},{dataPoint.PagesOutputPerSec},{dataPoint.TopProcess}");
+                                // **UPDATED**: Write new data points.
+                                writer.WriteLine($"{dataPoint.Timestamp:yyyy-MM-dd HH:mm:ss},{dataPoint.MemoryLoad},{dataPoint.CommittedMemoryPercentage},{dataPoint.PageFileUsagePercentage},{dataPoint.PageFaultsPerSec},{dataPoint.PagesInputPerSec},{dataPoint.PagesOutputPerSec},{dataPoint.TopProcess}");
                             }
                         }
                         MessageBox.Show("Data saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
