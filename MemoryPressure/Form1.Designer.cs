@@ -1,6 +1,6 @@
 ﻿// Form1.Designer.cs
 // This file contains the auto-generated code for the form's UI components.
-// Updated to include new buttons for recording and graphing.
+// Updated to add the Shown event handler.
 
 namespace MemoryPressure
 {
@@ -51,6 +51,7 @@ namespace MemoryPressure
             this.btnRecord = new System.Windows.Forms.Button();
             this.btnShowGraph = new System.Windows.Forms.Button();
             this.btnSaveData = new System.Windows.Forms.Button();
+            this.btnSettings = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.numTargetMemory)).BeginInit();
             this.gbStats.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -319,9 +320,9 @@ namespace MemoryPressure
             // 
             this.btnSwitchMode.Location = new System.Drawing.Point(26, 642);
             this.btnSwitchMode.Name = "btnSwitchMode";
-            this.btnSwitchMode.Size = new System.Drawing.Size(268, 23);
+            this.btnSwitchMode.Size = new System.Drawing.Size(131, 23);
             this.btnSwitchMode.TabIndex = 6;
-            this.btnSwitchMode.Text = "Switch to Overlay Mode";
+            this.btnSwitchMode.Text = "Switch to Overlay";
             this.btnSwitchMode.UseVisualStyleBackColor = true;
             this.btnSwitchMode.Click += new System.EventHandler(this.btnSwitchMode_Click);
             // 
@@ -398,6 +399,16 @@ namespace MemoryPressure
             this.btnSaveData.UseVisualStyleBackColor = true;
             this.btnSaveData.Click += new System.EventHandler(this.btnSaveData_Click);
             // 
+            // btnSettings
+            // 
+            this.btnSettings.Location = new System.Drawing.Point(163, 642);
+            this.btnSettings.Name = "btnSettings";
+            this.btnSettings.Size = new System.Drawing.Size(131, 23);
+            this.btnSettings.TabIndex = 11;
+            this.btnSettings.Text = "Settings";
+            this.btnSettings.UseVisualStyleBackColor = true;
+            this.btnSettings.Click += new System.EventHandler(this.btnSettings_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -405,6 +416,7 @@ namespace MemoryPressure
             this.BackColor = System.Drawing.Color.Black;
             this.BackgroundImage = global::MemoryPressure.Properties.Resources.memory_presure;
             this.ClientSize = new System.Drawing.Size(320, 677);
+            this.Controls.Add(this.btnSettings);
             this.Controls.Add(this.btnSaveData);
             this.Controls.Add(this.btnShowGraph);
             this.Controls.Add(this.btnRecord);
@@ -423,7 +435,9 @@ namespace MemoryPressure
             this.MaximizeBox = false;
             this.Name = "Form1";
             this.Text = "Memory Pressure";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing);
             this.Load += new System.EventHandler(this.Form1_Load);
+            this.Shown += new System.EventHandler(this.Form1_Shown);
             this.Resize += new System.EventHandler(this.Form1_Resize);
             ((System.ComponentModel.ISupportInitialize)(this.numTargetMemory)).EndInit();
             this.gbStats.ResumeLayout(false);
@@ -467,5 +481,6 @@ namespace MemoryPressure
         private System.Windows.Forms.Button btnRecord;
         private System.Windows.Forms.Button btnShowGraph;
         private System.Windows.Forms.Button btnSaveData;
+        private System.Windows.Forms.Button btnSettings;
     }
 }

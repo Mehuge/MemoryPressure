@@ -1,10 +1,11 @@
 ﻿// GraphForm.cs
 // This file contains the logic for the new graph window.
-// Updated to display page file usage percentage.
+// Updated to remove self-saving logic for window position and size.
 
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
 
@@ -20,68 +21,6 @@ namespace MemoryPressure
         public void ShowGraph(List<MemoryDataPoint> data)
         {
             if (chartMemory == null) return;
-            chartMemory.Series.Clear();
-
-            var memSeries = new Series("Physical Memory (%)")
-            {
-                ChartType = SeriesChartType.Line,
-                XValueType = ChartValueType.DateTime,
-                BorderWidth = 3,
-                Color = Color.LimeGreen,
-            };
-
-            var commitSeries = new Series("Committed Memory (%)")
-            {
-                ChartType = SeriesChartType.Line,
-                XValueType = ChartValueType.DateTime,
-                BorderWidth = 2,
-                Color = Color.Yellow,
-                BorderDashStyle = ChartDashStyle.Dash
-            };
-
-            // **NEW**: Series for page file usage.
-            var pageFileSeries = new Series("Page File Usage (%)")
-            {
-                ChartType = SeriesChartType.Line,
-                XValueType = ChartValueType.DateTime,
-                BorderWidth = 2,
-                Color = Color.SkyBlue,
-                BorderDashStyle = ChartDashStyle.Dot
-            };
-
-            var faultsSeries = new Series("Page Faults/sec")
-            {
-                ChartType = SeriesChartType.Line,
-                XValueType = ChartValueType.DateTime,
-                BorderWidth = 2,
-                Color = Color.OrangeRed,
-                YAxisType = AxisType.Secondary
-            };
-
-            var pagesInSeries = new Series("Pages Input/sec")
-            {
-                ChartType = SeriesChartType.Line,
-                XValueType = ChartValueType.DateTime,
-                BorderWidth = 1,
-                Color = Color.Cyan,
-                YAxisType = AxisType.Secondary
-            };
-
-            var pagesOutSeries = new Series("Pages Output/sec")
-            {
-                ChartType = SeriesChartType.Line,
-                XValueType = ChartValueType.DateTime,
-                BorderWidth = 1,
-                Color = Color.Magenta,
-                YAxisType = AxisType.Secondary
-            };
-
-            chartMemory.Series.Add(memSeries);
-            chartMemory.Series.Add(commitSeries);
-            chartMemory.Series.Add(pageFileSeries); // **NEW**
-            chartMemory.Series.Add(faultsSeries);
-            chartMemory.Series.Add(pagesInSeries);
-            chartMemory.Series.Add(pagesOutSeries);
 
             ConfigureChartAppearance();
             UpdateGraph(data);
@@ -100,48 +39,47 @@ namespace MemoryPressure
 
                 var memSeries = chartMemory.Series["Physical Memory (%)"];
                 var commitSeries = chartMemory.Series["Committed Memory (%)"];
-                var pageFileSeries = chartMemory.Series["Page File Usage (%)"]; // **NEW**
+                var pageFileSeries = chartMemory.Series["Page File Usage (%)"];
                 var faultsSeries = chartMemory.Series["Page Faults/sec"];
                 var pagesInSeries = chartMemory.Series["Pages Input/sec"];
                 var pagesOutSeries = chartMemory.Series["Pages Output/sec"];
 
+                var visibleMetrics = Properties.Settings.Default.VisibleMetrics;
+                memSeries.Enabled = visibleMetrics.Contains("Physical Memory (%)");
+                commitSeries.Enabled = visibleMetrics.Contains("Committed Memory (%)");
+                pageFileSeries.Enabled = visibleMetrics.Contains("Page File Usage (%)");
+                faultsSeries.Enabled = visibleMetrics.Contains("Page Faults/sec");
+                pagesInSeries.Enabled = visibleMetrics.Contains("Pages Input/sec");
+                pagesOutSeries.Enabled = visibleMetrics.Contains("Pages Output/sec");
+
                 memSeries.Points.Clear();
                 commitSeries.Points.Clear();
-                pageFileSeries.Points.Clear(); // **NEW**
+                pageFileSeries.Points.Clear();
                 faultsSeries.Points.Clear();
                 pagesInSeries.Points.Clear();
                 pagesOutSeries.Points.Clear();
 
-                const int maxPointsToShow = 500;
-                int dataCount = data.Count;
+                int maxPoints = Properties.Settings.Default.MaxSamplesToShow;
+                var dataToShow = data.Count > maxPoints ? data.Skip(data.Count - maxPoints).ToList() : data;
 
-                List<MemoryDataPoint> dataToShow;
-
-                if (dataCount <= maxPointsToShow)
+                const int displayLimit = 500;
+                if (dataToShow.Count > displayLimit)
                 {
-                    dataToShow = data;
-                }
-                else
-                {
-                    dataToShow = new List<MemoryDataPoint>();
-                    int step = dataCount / maxPointsToShow;
-                    for (int i = 0; i < dataCount; i += step)
-                    {
-                        dataToShow.Add(data[i]);
-                    }
+                    int step = dataToShow.Count / displayLimit;
+                    dataToShow = dataToShow.Where((x, i) => i % step == 0).ToList();
                 }
 
                 foreach (var point in dataToShow)
                 {
                     memSeries.Points.AddXY(point.Timestamp, point.MemoryLoad);
                     commitSeries.Points.AddXY(point.Timestamp, point.CommittedMemoryPercentage);
-                    pageFileSeries.Points.AddXY(point.Timestamp, point.PageFileUsagePercentage); // **NEW**
+                    pageFileSeries.Points.AddXY(point.Timestamp, point.PageFileUsagePercentage);
                     faultsSeries.Points.AddXY(point.Timestamp, point.PageFaultsPerSec);
                     pagesInSeries.Points.AddXY(point.Timestamp, point.PagesInputPerSec);
                     pagesOutSeries.Points.AddXY(point.Timestamp, point.PagesOutputPerSec);
                 }
 
-                memSeries.MarkerStyle = dataCount < 100 ? MarkerStyle.Circle : MarkerStyle.None;
+                memSeries.MarkerStyle = dataToShow.Count < 100 ? MarkerStyle.Circle : MarkerStyle.None;
                 memSeries.MarkerSize = 5;
 
                 chartMemory.Invalidate();
@@ -150,6 +88,22 @@ namespace MemoryPressure
 
         private void ConfigureChartAppearance()
         {
+            chartMemory.Series.Clear();
+
+            var memSeries = new Series("Physical Memory (%)") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 3, Color = Color.LimeGreen };
+            var commitSeries = new Series("Committed Memory (%)") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 2, Color = Color.Yellow, BorderDashStyle = ChartDashStyle.Dash };
+            var pageFileSeries = new Series("Page File Usage (%)") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 2, Color = Color.SkyBlue, BorderDashStyle = ChartDashStyle.Dot };
+            var faultsSeries = new Series("Page Faults/sec") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 2, Color = Color.OrangeRed, YAxisType = AxisType.Secondary };
+            var pagesInSeries = new Series("Pages Input/sec") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 1, Color = Color.Cyan, YAxisType = AxisType.Secondary };
+            var pagesOutSeries = new Series("Pages Output/sec") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 1, Color = Color.Magenta, YAxisType = AxisType.Secondary };
+
+            chartMemory.Series.Add(memSeries);
+            chartMemory.Series.Add(commitSeries);
+            chartMemory.Series.Add(pageFileSeries);
+            chartMemory.Series.Add(faultsSeries);
+            chartMemory.Series.Add(pagesInSeries);
+            chartMemory.Series.Add(pagesOutSeries);
+
             var chartArea = chartMemory.ChartAreas[0];
             chartArea.BackColor = Color.FromArgb(20, 20, 20);
 
@@ -181,6 +135,27 @@ namespace MemoryPressure
             legend.Docking = Docking.Top;
             legend.Alignment = StringAlignment.Center;
             legend.LegendStyle = LegendStyle.Row;
+        }
+
+        private void GraphForm_Load(object sender, EventArgs e)
+        {
+            if (IsOnScreen(Properties.Settings.Default.GraphFormLocation))
+            {
+                this.Location = Properties.Settings.Default.GraphFormLocation;
+                this.Size = Properties.Settings.Default.GraphFormSize;
+            }
+        }
+
+        private bool IsOnScreen(Point location)
+        {
+            foreach (Screen screen in Screen.AllScreens)
+            {
+                if (screen.WorkingArea.Contains(location))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

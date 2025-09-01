@@ -1,6 +1,6 @@
 ﻿// GraphForm.Designer.cs
 // This file contains the auto-generated code for the graph form's UI components.
-// Updated to make the legend more compact.
+// Updated to remove event handlers for saving window position and size.
 
 namespace MemoryPressure
 {
@@ -57,6 +57,7 @@ namespace MemoryPressure
             this.Controls.Add(this.chartMemory);
             this.Name = "GraphForm";
             this.Text = "Memory Usage Graph";
+            this.Load += new System.EventHandler(this.GraphForm_Load);
             ((System.ComponentModel.ISupportInitialize)(this.chartMemory)).EndInit();
             this.ResumeLayout(false);
 

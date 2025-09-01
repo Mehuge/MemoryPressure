@@ -1,6 +1,6 @@
 ﻿// OverlayForm.cs
 // This file contains the logic for the new overlay window.
-// It is a borderless, always-on-top, draggable form.
+// Updated to position the settings dialog below itself.
 
 using System;
 using System.Drawing;
@@ -10,10 +10,7 @@ namespace MemoryPressure
 {
     public partial class OverlayForm : Form
     {
-        // Reference to the main form to communicate back.
         private Form1 mainForm;
-
-        // For dragging the borderless form.
         private bool isDragging = false;
         private Point lastCursor;
         private Point lastForm;
@@ -26,20 +23,21 @@ namespace MemoryPressure
 
         private void OverlayForm_Load(object sender, EventArgs e)
         {
-            // Set properties for the overlay window.
             this.FormBorderStyle = FormBorderStyle.None;
             this.TopMost = true;
             this.BackColor = Color.Black;
-            this.Opacity = 0.75; // Semi-transparent
+
+            if (IsOnScreen(Properties.Settings.Default.OverlayFormLocation))
+            {
+                this.Location = Properties.Settings.Default.OverlayFormLocation;
+            }
         }
 
-        // Public method for the main form to update the stats on this overlay.
         public void UpdateStats(string percent, string usedRam, string topProcessName, string topProcessMemory)
         {
             lblOverlayPercent.Text = percent;
             lblOverlayUsedRam.Text = usedRam;
 
-            // **NEW**: Update the top process label.
             if (!string.IsNullOrEmpty(topProcessName))
             {
                 lblTopProcess.Text = $"Top: {topProcessName} ({topProcessMemory})";
@@ -51,7 +49,6 @@ namespace MemoryPressure
         }
 
         #region Form Dragging Logic
-        // This makes all controls on the form draggable.
         private void DraggableControl_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
@@ -91,6 +88,26 @@ namespace MemoryPressure
         {
             Application.Exit();
         }
+
+        private void settingsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // **THE FIX**: Temporarily disable TopMost so the settings dialog can appear on top.
+            this.TopMost = false;
+            mainForm.ShowSettingsDialog(this); // Pass this form as the owner for positioning.
+            this.TopMost = true; // Re-enable TopMost after the dialog is closed.
+        }
         #endregion
+
+        private bool IsOnScreen(Point location)
+        {
+            foreach (Screen screen in Screen.AllScreens)
+            {
+                if (screen.WorkingArea.Contains(location))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 }

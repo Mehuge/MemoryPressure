@@ -1,6 +1,6 @@
 ﻿// Form1.cs
 // This file contains the main logic for the user interface and memory management.
-// Version 27: Added page file usage to the data recording.
+// Version 31: Updated settings dialog logic to handle positioning.
 
 using System;
 using System.Collections.Generic;
@@ -49,7 +49,7 @@ namespace MemoryPressure
         private PerformanceCounter pageFaultsCounter;
         private PerformanceCounter pagesInputCounter;
         private PerformanceCounter pagesOutputCounter;
-        private PerformanceCounter pageFileUsageCounter; // **NEW**
+        private PerformanceCounter pageFileUsageCounter;
 
         private bool isRunning = false;
         private bool isAdjusting = false;
@@ -76,7 +76,7 @@ namespace MemoryPressure
             processListTimer = new Timer { Interval = 1000 };
             processListTimer.Tick += ProcessListTimer_Tick;
 
-            recordingTimer = new Timer { Interval = 5000 };
+            recordingTimer = new Timer();
             recordingTimer.Tick += RecordingTimer_Tick;
 
             try
@@ -84,12 +84,11 @@ namespace MemoryPressure
                 pageFaultsCounter = new PerformanceCounter("Memory", "Page Faults/sec");
                 pagesInputCounter = new PerformanceCounter("Memory", "Pages Input/sec");
                 pagesOutputCounter = new PerformanceCounter("Memory", "Pages Output/sec");
-                // **NEW**: Initialize the page file usage counter. The "_Total" instance is required.
                 pageFileUsageCounter = new PerformanceCounter("Paging File", "% Usage", "_Total");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to initialize performance counters. Some graphing features may not work.\n\nError: {ex.Message}", "Performance Counter Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show($"Failed to initialize performance counters.\nError: {ex.Message}", "Performance Counter Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             overlayForm = new OverlayForm(this);
@@ -132,7 +131,7 @@ namespace MemoryPressure
                     Timestamp = DateTime.Now,
                     MemoryLoad = memStatus.dwMemoryLoad,
                     CommittedMemoryPercentage = commitPercent,
-                    PageFileUsagePercentage = (uint)(pageFileUsageCounter?.NextValue() ?? 0), // **NEW**
+                    PageFileUsagePercentage = (uint)(pageFileUsageCounter?.NextValue() ?? 0),
                     PageFaultsPerSec = pageFaultsCounter?.NextValue() ?? 0,
                     PagesInputPerSec = pagesInputCounter?.NextValue() ?? 0,
                     PagesOutputPerSec = pagesOutputCounter?.NextValue() ?? 0,
@@ -346,6 +345,7 @@ namespace MemoryPressure
         private void Form1_Load(object sender, EventArgs e)
         {
             this.Text = "Memory Pressure";
+            ApplySettings();
             UpdateListViewBackground();
             memoryTimer.Start();
             processListTimer.Start();
@@ -353,6 +353,14 @@ namespace MemoryPressure
             if (!Environment.Is64BitProcess)
             {
                 MessageBox.Show("This application is running as a 32-bit process and will not work correctly.", "Configuration Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void Form1_Shown(object sender, EventArgs e)
+        {
+            if (Properties.Settings.Default.OverlayOnStartup)
+            {
+                btnSwitchMode.PerformClick();
             }
         }
 
@@ -366,6 +374,24 @@ namespace MemoryPressure
         {
             overlayForm.Hide();
             this.Show();
+        }
+
+        // **UPDATED**: This method now accepts an 'owner' form to position the settings dialog correctly.
+        public void ShowSettingsDialog(Form owner = null)
+        {
+            using (SettingsForm settingsForm = new SettingsForm())
+            {
+                if (owner != null)
+                {
+                    settingsForm.StartPosition = FormStartPosition.Manual;
+                    settingsForm.Location = new Point(owner.Location.X, owner.Bottom);
+                }
+
+                if (settingsForm.ShowDialog(owner) == DialogResult.OK)
+                {
+                    ApplySettings();
+                }
+            }
         }
 
         #region New Button Handlers
@@ -420,11 +446,9 @@ namespace MemoryPressure
                     {
                         using (StreamWriter writer = new StreamWriter(sfd.FileName))
                         {
-                            // **UPDATED**: New CSV header.
                             writer.WriteLine("Timestamp,PhysicalMemoryUsagePercentage,CommittedMemoryPercentage,PageFileUsagePercentage,PageFaultsPerSec,PagesInputPerSec,PagesOutputPerSec,TopProcess");
                             foreach (var dataPoint in recordedData)
                             {
-                                // **UPDATED**: Write new data points.
                                 writer.WriteLine($"{dataPoint.Timestamp:yyyy-MM-dd HH:mm:ss},{dataPoint.MemoryLoad},{dataPoint.CommittedMemoryPercentage},{dataPoint.PageFileUsagePercentage},{dataPoint.PageFaultsPerSec},{dataPoint.PagesInputPerSec},{dataPoint.PagesOutputPerSec},{dataPoint.TopProcess}");
                             }
                         }
@@ -437,7 +461,63 @@ namespace MemoryPressure
                 }
             }
         }
+
+        private void btnSettings_Click(object sender, EventArgs e)
+        {
+            ShowSettingsDialog(this);
+        }
         #endregion
+
+        private void ApplySettings()
+        {
+            recordingTimer.Interval = Properties.Settings.Default.SampleIntervalSeconds * 1000;
+            overlayForm.Opacity = Properties.Settings.Default.OverlayOpacity;
+
+            if (IsOnScreen(Properties.Settings.Default.MainFormLocation))
+            {
+                this.Location = Properties.Settings.Default.MainFormLocation;
+            }
+
+            if (Properties.Settings.Default.RecordOnStartup && !isRecording)
+            {
+                btnRecord.PerformClick();
+            }
+
+            if (Properties.Settings.Default.GraphOnStartup)
+            {
+                btnShowGraph.PerformClick();
+            }
+        }
+
+        private bool IsOnScreen(Point location)
+        {
+            foreach (Screen screen in Screen.AllScreens)
+            {
+                if (screen.WorkingArea.Contains(location))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            Properties.Settings.Default.MainFormLocation = this.Location;
+
+            if (overlayForm != null && !overlayForm.IsDisposed)
+            {
+                Properties.Settings.Default.OverlayFormLocation = overlayForm.Location;
+            }
+
+            if (graphForm != null && !graphForm.IsDisposed)
+            {
+                Properties.Settings.Default.GraphFormLocation = graphForm.Location;
+                Properties.Settings.Default.GraphFormSize = graphForm.Size;
+            }
+
+            Properties.Settings.Default.Save();
+        }
 
         #region ListView Custom Drawing & Transparency
         private void UpdateListViewBackground()

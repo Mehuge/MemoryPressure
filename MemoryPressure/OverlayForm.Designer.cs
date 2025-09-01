@@ -1,6 +1,6 @@
 ﻿// OverlayForm.Designer.cs
 // This file contains the auto-generated code for the overlay form's UI components.
-// Updated to include the new Top Process label.
+// Updated to remove the Move event handler.
 
 namespace MemoryPressure
 {
@@ -26,6 +26,7 @@ namespace MemoryPressure
             this.lblOverlayUsedRam = new System.Windows.Forms.Label();
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.showMainWindowToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.settingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.closeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.lblTopProcess = new System.Windows.Forms.Label();
             this.contextMenuStrip1.SuspendLayout();
@@ -65,9 +66,10 @@ namespace MemoryPressure
             // 
             this.contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.showMainWindowToolStripMenuItem,
+            this.settingsToolStripMenuItem,
             this.closeToolStripMenuItem});
             this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(181, 48);
+            this.contextMenuStrip1.Size = new System.Drawing.Size(181, 70);
             // 
             // showMainWindowToolStripMenuItem
             // 
@@ -75,6 +77,13 @@ namespace MemoryPressure
             this.showMainWindowToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.showMainWindowToolStripMenuItem.Text = "Show Main Window";
             this.showMainWindowToolStripMenuItem.Click += new System.EventHandler(this.showMainWindowToolStripMenuItem_Click);
+            // 
+            // settingsToolStripMenuItem
+            // 
+            this.settingsToolStripMenuItem.Name = "settingsToolStripMenuItem";
+            this.settingsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.settingsToolStripMenuItem.Text = "Settings";
+            this.settingsToolStripMenuItem.Click += new System.EventHandler(this.settingsToolStripMenuItem_Click);
             // 
             // closeToolStripMenuItem
             // 
@@ -124,5 +133,6 @@ namespace MemoryPressure
         private System.Windows.Forms.ToolStripMenuItem showMainWindowToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem closeToolStripMenuItem;
         private System.Windows.Forms.Label lblTopProcess;
+        private System.Windows.Forms.ToolStripMenuItem settingsToolStripMenuItem;
     }
 }
