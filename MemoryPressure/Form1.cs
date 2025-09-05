@@ -1,6 +1,6 @@
 ﻿// Form1.cs
 // This file contains the main logic for the user interface and memory management.
-// Version 31: Updated settings dialog logic to handle positioning.
+// CORRECTED: Now responsible for trimming data to the last N samples before sending to the graph.
 
 using System;
 using System.Collections.Generic;
@@ -142,7 +142,9 @@ namespace MemoryPressure
 
                 if (graphForm != null && !graphForm.IsDisposed && graphForm.Visible)
                 {
-                    graphForm.UpdateGraph(recordedData);
+                    int maxPoints = Properties.Settings.Default.MaxSamplesToShow;
+                    var dataForGraph = recordedData.Count > maxPoints ? recordedData.Skip(recordedData.Count - maxPoints).ToList() : recordedData;
+                    graphForm.UpdateGraph(dataForGraph);
                 }
             }
         }
@@ -376,7 +378,6 @@ namespace MemoryPressure
             this.Show();
         }
 
-        // **UPDATED**: This method now accepts an 'owner' form to position the settings dialog correctly.
         public void ShowSettingsDialog(Form owner = null)
         {
             using (SettingsForm settingsForm = new SettingsForm())
@@ -423,7 +424,10 @@ namespace MemoryPressure
                 graphForm = new GraphForm();
             }
 
-            graphForm.ShowGraph(recordedData);
+            int maxPoints = Properties.Settings.Default.MaxSamplesToShow;
+            var dataForGraph = recordedData.Count > maxPoints ? recordedData.Skip(recordedData.Count - maxPoints).ToList() : recordedData;
+
+            graphForm.ShowGraph(dataForGraph);
         }
 
         private void btnSaveData_Click(object sender, EventArgs e)
@@ -531,9 +535,9 @@ namespace MemoryPressure
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.DrawImage(this.BackgroundImage,
-                            new Rectangle(0, 0, bmp.Width, bmp.Height),
-                            new Rectangle(targetPoint.X, targetPoint.Y, bmp.Width, bmp.Height),
-                            GraphicsUnit.Pixel);
+                              new Rectangle(0, 0, bmp.Width, bmp.Height),
+                              new Rectangle(targetPoint.X, targetPoint.Y, bmp.Width, bmp.Height),
+                              GraphicsUnit.Pixel);
             }
 
             lvTopProcesses.BackgroundImage = bmp;

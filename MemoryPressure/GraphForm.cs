@@ -1,6 +1,6 @@
 ﻿// GraphForm.cs
 // This file contains the logic for the new graph window.
-// Updated to remove self-saving logic for window position and size.
+// CORRECTED: Implements stable data averaging for large datasets.
 
 using System;
 using System.Collections.Generic;
@@ -59,15 +59,43 @@ namespace MemoryPressure
                 pagesInSeries.Points.Clear();
                 pagesOutSeries.Points.Clear();
 
-                int maxPoints = Properties.Settings.Default.MaxSamplesToShow;
-                var dataToShow = data.Count > maxPoints ? data.Skip(data.Count - maxPoints).ToList() : data;
+                var dataToProcess = data; // Form1 is already handling the "last N samples"
 
+                // --- DATA THINNING (AVERAGING) LOGIC ---
                 const int displayLimit = 500;
-                if (dataToShow.Count > displayLimit)
+                List<MemoryDataPoint> dataToShow;
+
+                if (dataToProcess.Count > displayLimit)
                 {
-                    int step = dataToShow.Count / displayLimit;
-                    dataToShow = dataToShow.Where((x, i) => i % step == 0).ToList();
+                    var averagedData = new List<MemoryDataPoint>();
+                    int step = (int)Math.Ceiling((double)dataToProcess.Count / displayLimit);
+
+                    for (int i = 0; i < dataToProcess.Count; i += step)
+                    {
+                        var chunk = dataToProcess.Skip(i).Take(step).ToList();
+                        if (chunk.Any())
+                        {
+                            var avgPoint = new MemoryDataPoint
+                            {
+                                Timestamp = chunk.First().Timestamp,
+                                MemoryLoad = (uint)chunk.Average(p => p.MemoryLoad),
+                                CommittedMemoryPercentage = (uint)chunk.Average(p => p.CommittedMemoryPercentage),
+                                PageFileUsagePercentage = (uint)chunk.Average(p => p.PageFileUsagePercentage),
+                                PageFaultsPerSec = chunk.Average(p => p.PageFaultsPerSec),
+                                PagesInputPerSec = chunk.Average(p => p.PagesInputPerSec),
+                                PagesOutputPerSec = chunk.Average(p => p.PagesOutputPerSec),
+                                TopProcess = chunk.First().TopProcess
+                            };
+                            averagedData.Add(avgPoint);
+                        }
+                    }
+                    dataToShow = averagedData;
                 }
+                else
+                {
+                    dataToShow = dataToProcess;
+                }
+                // --- END DATA THINNING ---
 
                 foreach (var point in dataToShow)
                 {
@@ -159,3 +187,4 @@ namespace MemoryPressure
         }
     }
 }
+
