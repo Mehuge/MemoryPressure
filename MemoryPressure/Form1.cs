@@ -1,6 +1,6 @@
 ﻿// Form1.cs
 // This file contains the main logic for the user interface and memory management.
-// CORRECTED: Now responsible for trimming data to the last N samples before sending to the graph.
+// CORRECTED: Implements stable, forward-aligned, and EFFICIENT data averaging for the graph.
 
 using System;
 using System.Collections.Generic;
@@ -142,12 +142,64 @@ namespace MemoryPressure
 
                 if (graphForm != null && !graphForm.IsDisposed && graphForm.Visible)
                 {
-                    int maxPoints = Properties.Settings.Default.MaxSamplesToShow;
-                    var dataForGraph = recordedData.Count > maxPoints ? recordedData.Skip(recordedData.Count - maxPoints).ToList() : recordedData;
-                    graphForm.UpdateGraph(dataForGraph);
+                    graphForm.UpdateGraph(GetProcessedDataForGraph());
                 }
             }
         }
+
+        private List<MemoryDataPoint> GetProcessedDataForGraph()
+        {
+            if (recordedData == null || !recordedData.Any())
+                return new List<MemoryDataPoint>();
+
+            int maxSamplesToShow = Properties.Settings.Default.MaxSamplesToShow;
+            const int displayLimit = 500;
+            int totalSamples = recordedData.Count;
+
+            // Determine the stable step size based on settings. This defines our buckets.
+            int step = (int)Math.Ceiling((double)maxSamplesToShow / displayLimit);
+
+            // If no averaging is needed, just take the last N samples and return.
+            if (step <= 1)
+            {
+                return totalSamples > maxSamplesToShow
+                    ? recordedData.Skip(totalSamples - maxSamplesToShow).ToList()
+                    : recordedData;
+            }
+
+            // --- NEW STABLE & EFFICIENT AVERAGING LOGIC ---
+            // 1. Calculate the start index, aligned to a stable bucket boundary from the beginning of the recording.
+            int startIndex = (int)Math.Floor((double)(totalSamples - maxSamplesToShow) / step) * step;
+            startIndex = Math.Max(0, startIndex); // Ensure we don't start with a negative index.
+
+            // 2. Get the relevant slice of data to be processed.
+            var dataToProcess = recordedData.Skip(startIndex).ToList();
+
+            // 3. Average this smaller, relevant slice of data.
+            var averagedData = new List<MemoryDataPoint>();
+            for (int i = 0; i < dataToProcess.Count; i += step)
+            {
+                var chunk = dataToProcess.Skip(i).Take(step).ToList();
+                if (chunk.Any())
+                {
+                    var avgPoint = new MemoryDataPoint
+                    {
+                        Timestamp = chunk.First().Timestamp, // Use timestamp of the first point in the bucket
+                        MemoryLoad = (uint)chunk.Average(p => p.MemoryLoad),
+                        CommittedMemoryPercentage = (uint)chunk.Average(p => p.CommittedMemoryPercentage),
+                        PageFileUsagePercentage = (uint)chunk.Average(p => p.PageFileUsagePercentage),
+                        PageFaultsPerSec = chunk.Average(p => p.PageFaultsPerSec),
+                        PagesInputPerSec = chunk.Average(p => p.PagesInputPerSec),
+                        PagesOutputPerSec = chunk.Average(p => p.PagesOutputPerSec),
+                        TopProcess = chunk.First().TopProcess
+                    };
+                    averagedData.Add(avgPoint);
+                }
+            }
+
+            return averagedData;
+        }
+
 
         private string GetTopProcessName()
         {
@@ -424,10 +476,7 @@ namespace MemoryPressure
                 graphForm = new GraphForm();
             }
 
-            int maxPoints = Properties.Settings.Default.MaxSamplesToShow;
-            var dataForGraph = recordedData.Count > maxPoints ? recordedData.Skip(recordedData.Count - maxPoints).ToList() : recordedData;
-
-            graphForm.ShowGraph(dataForGraph);
+            graphForm.ShowGraph(GetProcessedDataForGraph());
         }
 
         private void btnSaveData_Click(object sender, EventArgs e)
@@ -574,3 +623,4 @@ namespace MemoryPressure
         #endregion
     }
 }
+

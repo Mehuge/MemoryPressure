@@ -1,6 +1,6 @@
 ﻿// GraphForm.cs
 // This file contains the logic for the new graph window.
-// CORRECTED: Implements stable data averaging for large datasets.
+// CORRECTED: Now a simple renderer; all data processing is handled by Form1.
 
 using System;
 using System.Collections.Generic;
@@ -29,9 +29,9 @@ namespace MemoryPressure
             this.Activate();
         }
 
-        public void UpdateGraph(List<MemoryDataPoint> data)
+        public void UpdateGraph(List<MemoryDataPoint> processedData)
         {
-            if (this.IsDisposed || !this.IsHandleCreated) return;
+            if (this.IsDisposed || !this.IsHandleCreated || chartMemory.IsDisposed) return;
 
             this.Invoke((MethodInvoker)delegate
             {
@@ -44,13 +44,26 @@ namespace MemoryPressure
                 var pagesInSeries = chartMemory.Series["Pages Input/sec"];
                 var pagesOutSeries = chartMemory.Series["Pages Output/sec"];
 
-                var visibleMetrics = Properties.Settings.Default.VisibleMetrics;
-                memSeries.Enabled = visibleMetrics.Contains("Physical Memory (%)");
-                commitSeries.Enabled = visibleMetrics.Contains("Committed Memory (%)");
-                pageFileSeries.Enabled = visibleMetrics.Contains("Page File Usage (%)");
-                faultsSeries.Enabled = visibleMetrics.Contains("Page Faults/sec");
-                pagesInSeries.Enabled = visibleMetrics.Contains("Pages Input/sec");
-                pagesOutSeries.Enabled = visibleMetrics.Contains("Pages Output/sec");
+                var savedMetrics = Properties.Settings.Default.VisibleMetrics;
+                if (savedMetrics == null) // First-run scenario
+                {
+                    memSeries.Enabled = true;
+                    commitSeries.Enabled = true;
+                    pageFileSeries.Enabled = true;
+                    faultsSeries.Enabled = true;
+                    pagesInSeries.Enabled = true;
+                    pagesOutSeries.Enabled = true;
+                }
+                else
+                {
+                    var visibleMetrics = new HashSet<string>(savedMetrics.Cast<string>());
+                    memSeries.Enabled = visibleMetrics.Contains("Physical Memory (%)");
+                    commitSeries.Enabled = visibleMetrics.Contains("Committed Memory (%)");
+                    pageFileSeries.Enabled = visibleMetrics.Contains("Page File Usage (%)");
+                    faultsSeries.Enabled = visibleMetrics.Contains("Page Faults/sec");
+                    pagesInSeries.Enabled = visibleMetrics.Contains("Pages Input/sec");
+                    pagesOutSeries.Enabled = visibleMetrics.Contains("Pages Output/sec");
+                }
 
                 memSeries.Points.Clear();
                 commitSeries.Points.Clear();
@@ -59,45 +72,7 @@ namespace MemoryPressure
                 pagesInSeries.Points.Clear();
                 pagesOutSeries.Points.Clear();
 
-                var dataToProcess = data; // Form1 is already handling the "last N samples"
-
-                // --- DATA THINNING (AVERAGING) LOGIC ---
-                const int displayLimit = 500;
-                List<MemoryDataPoint> dataToShow;
-
-                if (dataToProcess.Count > displayLimit)
-                {
-                    var averagedData = new List<MemoryDataPoint>();
-                    int step = (int)Math.Ceiling((double)dataToProcess.Count / displayLimit);
-
-                    for (int i = 0; i < dataToProcess.Count; i += step)
-                    {
-                        var chunk = dataToProcess.Skip(i).Take(step).ToList();
-                        if (chunk.Any())
-                        {
-                            var avgPoint = new MemoryDataPoint
-                            {
-                                Timestamp = chunk.First().Timestamp,
-                                MemoryLoad = (uint)chunk.Average(p => p.MemoryLoad),
-                                CommittedMemoryPercentage = (uint)chunk.Average(p => p.CommittedMemoryPercentage),
-                                PageFileUsagePercentage = (uint)chunk.Average(p => p.PageFileUsagePercentage),
-                                PageFaultsPerSec = chunk.Average(p => p.PageFaultsPerSec),
-                                PagesInputPerSec = chunk.Average(p => p.PagesInputPerSec),
-                                PagesOutputPerSec = chunk.Average(p => p.PagesOutputPerSec),
-                                TopProcess = chunk.First().TopProcess
-                            };
-                            averagedData.Add(avgPoint);
-                        }
-                    }
-                    dataToShow = averagedData;
-                }
-                else
-                {
-                    dataToShow = dataToProcess;
-                }
-                // --- END DATA THINNING ---
-
-                foreach (var point in dataToShow)
+                foreach (var point in processedData)
                 {
                     memSeries.Points.AddXY(point.Timestamp, point.MemoryLoad);
                     commitSeries.Points.AddXY(point.Timestamp, point.CommittedMemoryPercentage);
@@ -107,8 +82,7 @@ namespace MemoryPressure
                     pagesOutSeries.Points.AddXY(point.Timestamp, point.PagesOutputPerSec);
                 }
 
-                memSeries.MarkerStyle = dataToShow.Count < 100 ? MarkerStyle.Circle : MarkerStyle.None;
-                memSeries.MarkerSize = 5;
+                memSeries.MarkerStyle = processedData.Count < 100 ? MarkerStyle.Circle : MarkerStyle.None;
 
                 chartMemory.Invalidate();
             });
@@ -118,19 +92,21 @@ namespace MemoryPressure
         {
             chartMemory.Series.Clear();
 
-            var memSeries = new Series("Physical Memory (%)") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 3, Color = Color.LimeGreen };
-            var commitSeries = new Series("Committed Memory (%)") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 2, Color = Color.Yellow, BorderDashStyle = ChartDashStyle.Dash };
-            var pageFileSeries = new Series("Page File Usage (%)") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 2, Color = Color.SkyBlue, BorderDashStyle = ChartDashStyle.Dot };
-            var faultsSeries = new Series("Page Faults/sec") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 2, Color = Color.OrangeRed, YAxisType = AxisType.Secondary };
-            var pagesInSeries = new Series("Pages Input/sec") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 1, Color = Color.Cyan, YAxisType = AxisType.Secondary };
-            var pagesOutSeries = new Series("Pages Output/sec") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 1, Color = Color.Magenta, YAxisType = AxisType.Secondary };
+            var seriesList = new List<Series>
+            {
+                new Series("Physical Memory (%)") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 3, Color = Color.LimeGreen },
+                new Series("Committed Memory (%)") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 2, Color = Color.Yellow, BorderDashStyle = ChartDashStyle.Dash },
+                new Series("Page File Usage (%)") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 2, Color = Color.SkyBlue, BorderDashStyle = ChartDashStyle.Dot },
+                new Series("Page Faults/sec") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 2, Color = Color.OrangeRed, YAxisType = AxisType.Secondary },
+                new Series("Pages Input/sec") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 1, Color = Color.Cyan, YAxisType = AxisType.Secondary },
+                new Series("Pages Output/sec") { ChartType = SeriesChartType.Line, XValueType = ChartValueType.DateTime, BorderWidth = 1, Color = Color.Magenta, YAxisType = AxisType.Secondary }
+            };
 
-            chartMemory.Series.Add(memSeries);
-            chartMemory.Series.Add(commitSeries);
-            chartMemory.Series.Add(pageFileSeries);
-            chartMemory.Series.Add(faultsSeries);
-            chartMemory.Series.Add(pagesInSeries);
-            chartMemory.Series.Add(pagesOutSeries);
+            foreach (var s in seriesList)
+            {
+                s.MarkerSize = 5;
+                chartMemory.Series.Add(s);
+            }
 
             var chartArea = chartMemory.ChartAreas[0];
             chartArea.BackColor = Color.FromArgb(20, 20, 20);
